@@ -20,8 +20,8 @@ func NewJWTAuth(secret string) *JWTAuth {
 	return &JWTAuth{SecretKey: secret}
 }
 
-func (j *JWTAuth) GenerateToken(userID, username string, expiry time.Duration) (string, error) {
-	claims := Claims{
+func (j *JWTAuth) GenerateToken(userID, username string, expiry time.Duration, refreshExpiry time.Duration) (string, string, error) {
+	ac := Claims{
 		UserID:   userID,
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -30,8 +30,27 @@ func (j *JWTAuth) GenerateToken(userID, username string, expiry time.Duration) (
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(j.SecretKey))
+	at, err := jwt.NewWithClaims(jwt.SigningMethodHS256, ac).SignedString([]byte(j.SecretKey))
+
+	if err != nil {
+		return "", "", err
+	}
+
+	rc := Claims{
+		UserID:   userID,
+		Username: username,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(refreshExpiry)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	rt, err := jwt.NewWithClaims(jwt.SigningMethodHS256, rc).SignedString([]byte(j.SecretKey))
+	if err != nil {
+		return "", "", err
+	}
+
+	return at, rt, nil
 }
 
 func (j *JWTAuth) ValidateToken(tokenString string) (*Claims, error) {
@@ -52,4 +71,20 @@ func (j *JWTAuth) ValidateToken(tokenString string) (*Claims, error) {
 	}
 
 	return claims, nil
+}
+
+func (j *JWTAuth) RefreshToken(tokenString string, expiry time.Duration, refreshExpiry time.Duration) (string, string, error) {
+	claims, err := j.ValidateToken(tokenString)
+
+	if err != nil {
+		return "", "", errors.New("invalid token")
+	}
+
+	at, rt, err := j.GenerateToken(claims.UserID, claims.Username, expiry, refreshExpiry)
+
+	if err != nil {
+		return "", "", errors.New("error creating when generate token")
+	}
+
+	return at, rt, nil
 }
