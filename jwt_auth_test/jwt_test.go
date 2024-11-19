@@ -13,9 +13,10 @@ func TestJWTAuthGenerateToken(t *testing.T) {
 
 	userId := "123"
 	username := "john@doe.com"
-	token, err := auth.GenerateToken(userId, username, 60*time.Second)
+	at, rt, err := auth.GenerateToken(userId, username, 60*time.Second, 24*time.Hour)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, token)
+	assert.NotEmpty(t, at)
+	assert.NotEmpty(t, rt)
 }
 
 func TestJWTAuthValidateToken(t *testing.T) {
@@ -23,10 +24,11 @@ func TestJWTAuthValidateToken(t *testing.T) {
 	auth := jwt_auth.NewJWTAuth(secret)
 	userId := "123"
 	username := "john@doe.com"
-	token, err := auth.GenerateToken(userId, username, 60*time.Second)
+	at, rt, err := auth.GenerateToken(userId, username, 60*time.Second, 24*time.Hour)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, token)
-	claims, err := auth.ValidateToken(token)
+	assert.NotEmpty(t, at)
+	assert.NotEmpty(t, rt)
+	claims, err := auth.ValidateToken(at)
 	assert.Equal(t, userId, claims.UserID)
 	assert.Equal(t, username, claims.Username)
 }
@@ -38,4 +40,19 @@ func TestInvalidToken(t *testing.T) {
 	invalidToken := "invalid.jwt.token"
 	_, err := auth.ValidateToken(invalidToken)
 	assert.Error(t, err)
+}
+
+func TestRefreshToken(t *testing.T) {
+	secret := "weareteam1"
+	auth := jwt_auth.NewJWTAuth(secret)
+	userId := "123"
+	username := "john@doe.com"
+	at, rt, err := auth.GenerateToken(userId, username, 60*time.Second, 24*time.Hour)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, at)
+	assert.NotEmpty(t, rt)
+	at, rt, err = auth.RefreshToken(rt, 60*time.Second, 24*time.Hour)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, at)
+	assert.NotEmpty(t, rt)
 }
